@@ -228,7 +228,7 @@ func (o Options) norm() *Normalizer {
 // prepare nạp docx, bỏ tiểu mục theo DropStems / trang mục lục, ghi ảnh ra
 // OutputDir/images và dựng lời đọc cho từng tiểu mục. Chưa render audio.
 func (opts Options) prepare() (*prepared, error) {
-	book, err := ParseDocx(opts.InputDocx)
+	book, err := ParseInput(opts.InputDocx)
 	if err != nil {
 		return nil, err
 	}

@@ -131,7 +131,7 @@ func (t toolPaths) ttsConfig(voice string) bookmaker.TTSConfig {
 // options dựng bookmaker.Options từ lựa chọn của người dùng.
 // global — từ điển chung của người dùng (nil = chỉ bộ chuẩn).
 func (s BookSettings) options(t toolPaths, outDir string, global map[string]string) (bookmaker.Options, error) {
-	if !strings.EqualFold(filepath.Ext(s.Path), ".docx") {
+	if !bookmaker.IsSupportedInput(s.Path) {
 		return bookmaker.Options{}, ErrNotDocx
 	}
 	norm, err := bookmaker.NewNormalizerWith(s.KeepHeadingNumbers, global, s.Pronunciations)

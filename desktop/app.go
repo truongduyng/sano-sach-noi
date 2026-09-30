@@ -162,52 +162,16 @@ func (a *App) ChooseDocx() (*DocxFile, error) {
 	if path == "" {
 		return nil, nil
 	}
-	return a.describeInput(path)
+	return describeDocx(path)
 }
 
-// DescribeDocx đọc thông tin file .docx (hoặc .txt) được kéo thả vào cửa sổ.
+// DescribeDocx đọc thông tin file .docx được kéo thả vào cửa sổ.
 func (a *App) DescribeDocx(path string) (*DocxFile, error) {
-	return a.describeInput(path)
-}
-
-// describeInput nhận .docx như cũ; file .txt được đổi thành .docx tạm trong
-// ~/Sano/.tam rồi đi tiếp luồng cũ, tên hiện ra vẫn là tên file gốc.
-func (a *App) describeInput(path string) (*DocxFile, error) {
-	if !strings.EqualFold(filepath.Ext(path), ".txt") {
-		return describeDocx(path)
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		return nil, fmt.Errorf("đọc file: %w", err)
-	}
-	if info.IsDir() {
-		return nil, ErrNotDocx
-	}
-	if info.Size() > bookmaker.MaxPastedTextBytes {
-		return nil, fmt.Errorf("file quá dài (hơn %d MB)", bookmaker.MaxPastedTextBytes>>20)
-	}
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("đọc file: %w", err)
-	}
-	base := filepath.Base(path)
-	data, err := bookmaker.PlainTextToDocx(string(raw), strings.TrimSuffix(base, filepath.Ext(base)))
-	if err != nil {
-		return nil, err
-	}
-	dir := filepath.Join(a.lib.Root(), ".tam")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return nil, fmt.Errorf("tạo thư mục tạm: %w", err)
-	}
-	tmp := filepath.Join(dir, "File-txt.docx")
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return nil, fmt.Errorf("ghi file tạm: %w", err)
-	}
-	return &DocxFile{Path: tmp, Name: base, Size: info.Size()}, nil
+	return describeDocx(path)
 }
 
 func describeDocx(path string) (*DocxFile, error) {
-	if !strings.EqualFold(filepath.Ext(path), ".docx") {
+	if ext := filepath.Ext(path); !strings.EqualFold(ext, ".docx") && !strings.EqualFold(ext, ".txt") {
 		return nil, ErrNotDocx
 	}
 	info, err := os.Stat(path)

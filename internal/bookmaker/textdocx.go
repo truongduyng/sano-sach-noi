@@ -72,17 +72,13 @@ func TextToDocx(text string) ([]byte, error) {
 		return nil, ErrNoChapterLine
 	}
 	b.WriteString(`</w:body></w:document>`)
-	return packDocx(b.String())
-}
 
-// packDocx đóng document.xml thành file .docx tối thiểu.
-func packDocx(documentXML string) ([]byte, error) {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
 	for _, e := range []struct{ name, data string }{
 		{"[Content_Types].xml", textDocxContentTypes},
 		{"_rels/.rels", sampleRootRels},
-		{"word/document.xml", documentXML},
+		{"word/document.xml", b.String()},
 	} {
 		fw, err := zw.Create(e.name)
 		if err != nil {
@@ -130,42 +126,3 @@ const textDocxContentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="y
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
 </Types>`
-
-// PlainTextToDocx đổi file .txt thành .docx tạm: cả file là một đoạn văn bản
-// liền mạch (một chương duy nhất lấy tên file làm tên), không tìm cấu trúc sách.
-func PlainTextToDocx(text, title string) ([]byte, error) {
-	text = strings.TrimPrefix(text, "\ufeff")
-	if len(text) > MaxPastedTextBytes {
-		return nil, fmt.Errorf("file quá dài (hơn %d MB)", MaxPastedTextBytes>>20)
-	}
-	if !utf8.ValidString(text) {
-		return nil, errors.New("file .txt không phải mã hoá UTF-8, hãy mở bằng Notepad rồi lưu lại với mã hoá UTF-8")
-	}
-	title = strings.TrimSpace(title)
-	if title == "" {
-		title = "Nội dung"
-	}
-	var b strings.Builder
-	b.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>`)
-	para := func(style, s string) {
-		b.WriteString(`<w:p>`)
-		if style != "" {
-			b.WriteString(`<w:pPr><w:pStyle w:val="` + style + `"/></w:pPr>`)
-		}
-		b.WriteString(`<w:r><w:t xml:space="preserve">` + xmlEscape(s) + `</w:t></w:r></w:p>`)
-	}
-	para("Heading1", title)
-	n := 0
-	for _, raw := range strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n") {
-		if line := strings.TrimSpace(raw); line != "" {
-			para("", line)
-			n++
-		}
-	}
-	if n == 0 {
-		return nil, errors.New("file .txt trống")
-	}
-	b.WriteString(`</w:body></w:document>`)
-	return packDocx(b.String())
-}
