@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"unicode/utf8"
 )
@@ -73,13 +72,17 @@ func TextToDocx(text string) ([]byte, error) {
 		return nil, ErrNoChapterLine
 	}
 	b.WriteString(`</w:body></w:document>`)
+	return packDocx(b.String())
+}
 
+// packDocx đóng document.xml thành file .docx tối thiểu.
+func packDocx(documentXML string) ([]byte, error) {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
 	for _, e := range []struct{ name, data string }{
 		{"[Content_Types].xml", textDocxContentTypes},
 		{"_rels/.rels", sampleRootRels},
-		{"word/document.xml", b.String()},
+		{"word/document.xml", documentXML},
 	} {
 		fw, err := zw.Create(e.name)
 		if err != nil {
@@ -128,13 +131,8 @@ const textDocxContentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="y
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
 </Types>`
 
-// chapterLineRe nhận dòng đầu chương trong file .txt không có dấu #.
-var chapterLineRe = regexp.MustCompile(`(?i)^(chương|chuong|chapter|phần|phan|part)\s+([0-9]+|[ivxlc]+)\b`)
-
-// PlainTextToDocx đổi nội dung file .txt người dùng chọn thành .docx tạm.
-// File đã có dòng "#" / "%" thì theo đúng quy ước của TextToDocx. Không có thì
-// dòng "Chương N …" / "Chapter N …" là đầu chương; vẫn không có thì cả file là
-// một chương lấy tên file (title) làm tên.
+// PlainTextToDocx đổi file .txt thành .docx tạm: cả file là một đoạn văn bản
+// liền mạch (một chương duy nhất lấy tên file làm tên), không tìm cấu trúc sách.
 func PlainTextToDocx(text, title string) ([]byte, error) {
 	text = strings.TrimPrefix(text, "\ufeff")
 	if len(text) > MaxPastedTextBytes {
@@ -143,37 +141,31 @@ func PlainTextToDocx(text, title string) ([]byte, error) {
 	if !utf8.ValidString(text) {
 		return nil, errors.New("file .txt không phải mã hoá UTF-8, hãy mở bằng Notepad rồi lưu lại với mã hoá UTF-8")
 	}
-	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
-	marked, chapters := false, 0
-	for _, raw := range lines {
-		line := strings.TrimSpace(raw)
-		if strings.HasPrefix(line, "#") || strings.HasPrefix(line, "%") {
-			marked = true
-			break
-		}
-		if chapterLineRe.MatchString(line) {
-			chapters++
-		}
-	}
-	if marked {
-		return TextToDocx(text)
+	title = strings.TrimSpace(title)
+	if title == "" {
+		title = "Nội dung"
 	}
 	var b strings.Builder
-	if chapters == 0 {
-		title = strings.TrimSpace(title)
-		if title == "" {
-			title = "Nội dung"
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>`)
+	para := func(style, s string) {
+		b.WriteString(`<w:p>`)
+		if style != "" {
+			b.WriteString(`<w:pPr><w:pStyle w:val="` + style + `"/></w:pPr>`)
 		}
-		b.WriteString("# " + title + "\n")
+		b.WriteString(`<w:r><w:t xml:space="preserve">` + xmlEscape(s) + `</w:t></w:r></w:p>`)
 	}
-	for _, raw := range lines {
-		line := strings.TrimSpace(raw)
-		if chapters > 0 && chapterLineRe.MatchString(line) {
-			b.WriteString("# " + line + "\n")
-		} else if line != "" {
-			// đoạn văn thường: bỏ dấu đầu dòng markdown giả để không bị coi là tiêu đề
-			b.WriteString(line + "\n")
+	para("Heading1", title)
+	n := 0
+	for _, raw := range strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n") {
+		if line := strings.TrimSpace(raw); line != "" {
+			para("", line)
+			n++
 		}
 	}
-	return TextToDocx(b.String())
+	if n == 0 {
+		return nil, errors.New("file .txt trống")
+	}
+	b.WriteString(`</w:body></w:document>`)
+	return packDocx(b.String())
 }
