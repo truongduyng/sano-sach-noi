@@ -5,7 +5,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { Loader2, Pause, Play } from 'lucide-vue-next'
 import { errText, speakSample, type Voice } from '../../lib/backend'
 import { useClipPlayer } from '../../lib/audio'
-import { lastVoice, loadVoices, state } from '../../lib/store'
+import { cancelSetup } from '../../lib/backend'
+import { isEnglishVoice, lastVoice, loadEnglish, loadVoices, startEnglishSetup, state } from '../../lib/store'
 
 // Đổi tên khoá (từ 0.1.10) để máy đã chọn miền trước đây cũng mở tab Khuyên dùng một lần.
 const REGION_KEY = 'sano.voiceTab'
@@ -21,7 +22,29 @@ const sampleError = ref('')
 const urls = new Map<string, { text: string; url: string }>()
 const used = lastVoice()
 
+// Ngôn ngữ sách: giọng tiếng Anh (gói Kokoro) chỉ đọc sách tiếng Anh, giọng Việt chỉ đọc sách Việt.
+const DEFAULT_EN_VOICE = 'Heart'
+const lang = ref<'vi' | 'en'>(isEnglishVoice(state.voice) ? 'en' : 'vi')
+const sampleEn = ref('Step one: stop what you are doing and look at the person speaking.')
+const en = computed(() => state.english)
+const enSetup = computed(() => state.setupEn)
+const enRunning = computed(() => enSetup.value.running)
+const enPct = computed(() => {
+  const s = enSetup.value.steps
+  return s.length ? Math.round(s.reduce((a, x) => a + (x.state === 'done' || x.state === 'skipped' ? 100 : x.pct), 0) / s.length) : 0
+})
+const enMB = computed(() => Math.round(en.value.downloadBytes / (1 << 20)))
+function setLang(l: 'vi' | 'en') {
+  lang.value = l
+  if (l === 'en') {
+    if (!isEnglishVoice(state.voice)) state.voice = state.englishVoices.find((v) => v.name === DEFAULT_EN_VOICE)?.name ?? state.englishVoices[0]?.name ?? DEFAULT_EN_VOICE
+  } else if (isEnglishVoice(state.voice)) {
+    state.voice = state.voices.find((v) => v.name === lastVoice())?.name ?? state.voices[0]?.name ?? state.voice
+  }
+}
+
 onMounted(() => {
+  void loadEnglish()
   void loadVoices()
   if (!state.sampleSentence) state.sampleSentence = 'Bước thứ nhất, dừng việc đang làm và nhìn người nói.'
 })
@@ -84,7 +107,7 @@ function desc(v: Voice) {
 
 async function sample(v: Voice) {
   sampleError.value = ''
-  const text = state.sampleSentence.trim()
+  const text = (lang.value === 'en' ? sampleEn.value : state.sampleSentence).trim()
   const hit = urls.get(v.name)
   if (hit && hit.text === text) return player.toggle(v.name, hit.url)
   loadingVoice.value = v.name
@@ -107,6 +130,46 @@ async function sample(v: Voice) {
       Bấm nghe để thử từng giọng với một câu trong sách của bạn. Giọng đọc của
       <a href="https://github.com/pnnbao97/VieNeu-TTS" target="_blank" rel="noopener" class="text-primary hover:underline">VieNeu-TTS</a>, mã nguồn mở, chạy ngay trên máy.
     </p>
+    <div v-if="state.englishVoices.length" class="mt-4 inline-flex rounded-lg border border-border p-0.5 bg-muted/40" role="tablist" aria-label="Ngôn ngữ sách">
+      <button role="tab" :aria-selected="lang === 'vi'" class="h-8 px-3.5 rounded-md text-sm whitespace-nowrap" :class="lang === 'vi' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'" @click="setLang('vi')">Sách tiếng Việt</button>
+      <button role="tab" :aria-selected="lang === 'en'" class="h-8 px-3.5 rounded-md text-sm whitespace-nowrap" :class="lang === 'en' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'" @click="setLang('en')">Sách tiếng Anh</button>
+    </div>
+    <template v-if="lang === 'en'">
+      <p class="mt-3 text-sm text-muted-foreground">
+        Giọng đọc tiếng Anh của <a href="https://github.com/thewh1teagle/kokoro-onnx" target="_blank" rel="noopener" class="text-primary hover:underline">Kokoro-82M</a> (Apache-2.0), chạy ngay trên máy. Chỉ dùng cho sách viết bằng tiếng Anh.
+      </p>
+      <div v-if="!en.ready" class="mt-4 rounded-lg border border-border p-4 text-sm">
+        <p class="font-medium">Cần cài gói giọng tiếng Anh (tải khoảng {{ enMB }} MB, một lần)</p>
+        <p class="mt-1 text-muted-foreground">Sano tải mô hình Kokoro và thư viện đọc, kiểm SHA256 rồi đọc thử một câu. Sau đó nghe và tạo sách tiếng Anh không cần mạng.</p>
+        <div v-if="enRunning" class="mt-3">
+          <div class="h-2 rounded-full bg-muted overflow-hidden"><div class="h-full bg-primary transition-all" :style="{ width: enPct + '%' }"></div></div>
+          <p class="mt-1.5 text-xs text-muted-foreground">{{ enSetup.steps.find((s) => s.state === 'running')?.label }} · {{ enSetup.steps.find((s) => s.state === 'running')?.detail }}</p>
+          <button class="mt-2 h-8 px-3 rounded-md border border-border text-xs hover:bg-muted" @click="cancelSetup()">Huỷ</button>
+        </div>
+        <button v-else class="mt-3 h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium" @click="startEnglishSetup()">Cài gói giọng tiếng Anh</button>
+        <p v-if="state.setupEnError || enSetup.error" class="mt-2 text-destructive">{{ state.setupEnError || enSetup.error }}<template v-if="enSetup.hint"> {{ enSetup.hint }}</template></p>
+      </div>
+      <div v-else class="mt-4 grid gap-2">
+        <label v-for="v in state.englishVoices" :key="v.name" class="flex items-center gap-3 rounded-lg border px-4 py-2.5 cursor-pointer" :class="state.voice === v.name ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'">
+          <input v-model="state.voice" type="radio" :value="v.name" class="h-4 w-4 accent-[hsl(var(--primary))]" />
+          <span class="flex-1">
+            <span class="font-medium text-sm">{{ v.name }}</span>
+            <span v-if="v.featured" class="ml-2 text-[11px] rounded-full bg-primary/10 px-2 py-0.5 text-primary">Khuyên dùng</span>
+            <span class="block text-xs text-muted-foreground">{{ v.desc }}</span>
+          </span>
+          <button class="h-8 px-3 rounded-full border border-border text-xs flex items-center gap-1.5 hover:bg-muted disabled:opacity-50" :disabled="loadingVoice !== null && loadingVoice !== v.name" @click.prevent="sample(v)">
+            <Loader2 v-if="loadingVoice === v.name" class="w-3.5 h-3.5 animate-spin" />
+            <component :is="player.playing.value === v.name ? Pause : Play" v-else class="w-3.5 h-3.5" /> Nghe mẫu
+          </button>
+        </label>
+      </div>
+      <p v-if="sampleError || player.error.value" class="mt-3 text-sm text-destructive">{{ sampleError || player.error.value }}</p>
+      <div v-if="en.ready" class="mt-5 text-sm">
+        <p class="font-medium">Câu nghe mẫu</p>
+        <input v-model="sampleEn" class="mt-1 w-full h-9 rounded-md border border-input bg-background px-3" />
+      </div>
+    </template>
+    <template v-else>
     <p v-if="state.voicesError" class="mt-4 text-sm text-destructive">{{ state.voicesError }}</p>
     <p v-else-if="!state.voices.length" class="mt-5 text-sm text-muted-foreground flex items-center gap-2"><Loader2 class="w-4 h-4 animate-spin" /> Đang lấy danh sách giọng…</p>
     <div v-if="state.voices.length" class="mt-5 flex flex-wrap items-center justify-between gap-3">
@@ -146,5 +209,6 @@ async function sample(v: Voice) {
       <p class="font-medium">Câu nghe mẫu</p>
       <input v-model="state.sampleSentence" class="mt-1 w-full h-9 rounded-md border border-input bg-background px-3" />
     </div>
+    </template>
   </div>
 </template>

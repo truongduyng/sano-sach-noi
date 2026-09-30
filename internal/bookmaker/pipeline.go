@@ -255,7 +255,7 @@ func (opts Options) prepare() (*prepared, error) {
 		Author:            opts.Author,
 		Narrator:          narratorLabel(opts.TTS),
 		Description:       opts.Description,
-		Language:          "vi",
+		Language:          LangOfVoice(opts.TTS.Voice),
 		Tags:              opts.Tags,
 		Visibility:        opts.Visibility,
 		Category:          opts.Category,
@@ -497,6 +497,9 @@ func jobTexts(jobs []ttsJob) []string {
 func narratorLabel(c TTSConfig) string {
 	if c.Mode == TTSModeStub {
 		return "VieNeu-TTS (stub)"
+	}
+	if IsEnglishVoice(c.Voice) {
+		return "Kokoro-82M (" + c.Voice + ")"
 	}
 	return "VieNeu-TTS (" + c.Voice + ")"
 }

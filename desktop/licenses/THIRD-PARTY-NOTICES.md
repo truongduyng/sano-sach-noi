@@ -25,6 +25,13 @@ Sano (giấy phép MIT) dùng các thành phần dưới đây. Phần mềm des
 
 Lưu ý: Sano chỉ dùng VieNeu-TTS v3 Turbo và 25 giọng dựng sẵn đi kèm mô hình (Apache-2.0). VieNeu v4 và kho giọng trên vieneu.io là sản phẩm độc quyền của tác giả VieNeu — Sano không dùng.
 
+### Gói giọng tiếng Anh (tải riêng khi người dùng chọn sách tiếng Anh)
+
+- **Kokoro-82M** — Apache License 2.0 — tác giả hexgrad — https://huggingface.co/hexgrad/Kokoro-82M. Sano dùng bản ONNX int8 (`kokoro-v1.0.int8.onnx`) và file giọng `voices-v1.0.bin` từ GitHub Release `model-files-v1.0` của https://github.com/thewh1teagle/kokoro-onnx, ghim SHA256 trong `scripts/tts/versions.env`, không chỉnh sửa.
+- **kokoro-onnx** — MIT — thewh1teagle — https://github.com/thewh1teagle/kokoro-onnx (thư viện Python chạy mô hình).
+- **espeak-ng** (qua gói `espeakng-loader`) và **phonemizer** — GNU GPL v3 — https://github.com/espeak-ng/espeak-ng, https://github.com/bootphon/phonemizer. Dùng để đổi chữ tiếng Anh thành âm. Sano không đóng gói hay phân phối lại: máy người dùng tự cài từ PyPI (đúng bản và SHA256 ghim trong `scripts/tts/kokoro-requirements.txt`) vào venv riêng, và Sano chỉ gọi `kokoro_gen_batch.py` như một chương trình riêng (không liên kết vào Sano).
+- Các thư viện Python khác của gói (onnxruntime, numpy, soundfile…) giữ giấy phép riêng; danh sách phiên bản: `scripts/tts/kokoro-requirements.txt`.
+
 ## Công cụ cài đặt
 
 ### uv — MIT hoặc Apache License 2.0

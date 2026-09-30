@@ -18,6 +18,7 @@ import (
 
 	"sano/desktop/internal/setup"
 	"sano/desktop/internal/tts"
+	"sano/internal/bookmaker"
 	ttsscripts "sano/scripts/tts"
 )
 
@@ -182,7 +183,31 @@ func (a *App) Installing() bool {
 
 // StartSetup bắt đầu cài bộ đọc trong nền. Tiến độ qua sự kiện setup:progress,
 // kết thúc qua setup:finished. Đang cài thì trả trạng thái hiện tại.
-func (a *App) StartSetup() (*setup.Status, error) {
+func (a *App) StartSetup() (*setup.Status, error) { return a.startSetup("") }
+
+// EnglishPackInfo — trạng thái gói giọng tiếng Anh (Kokoro): đã cài chưa, cần tải bao nhiêu.
+type EnglishPackInfo struct {
+	Ready         bool  `json:"ready"`
+	DownloadBytes int64 `json:"downloadBytes"`
+}
+
+// EnglishPack cho biết gói giọng tiếng Anh đã cài đủ chưa.
+func (a *App) EnglishPack() EnglishPackInfo {
+	l, err := layout()
+	if err != nil {
+		return EnglishPackInfo{DownloadBytes: setup.EnglishDownloadBytes}
+	}
+	return EnglishPackInfo{Ready: setup.EnglishReady(l), DownloadBytes: setup.EnglishDownloadBytes}
+}
+
+// EnglishVoices — giọng tiếng Anh (danh sách cố định, không cần bộ đọc chạy).
+func (a *App) EnglishVoices() []bookmaker.Voice { return bookmaker.EnglishVoices() }
+
+// StartEnglishSetup cài gói giọng tiếng Anh (Kokoro) trong nền, cùng sự kiện
+// tiến độ với StartSetup (Status.Pack = "en").
+func (a *App) StartEnglishSetup() (*setup.Status, error) { return a.startSetup(setup.PackEnglish) }
+
+func (a *App) startSetup(pack string) (*setup.Status, error) {
 	if a.uninstallingNow() {
 		return nil, errUninstalling
 	}
@@ -216,6 +241,7 @@ func (a *App) StartSetup() (*setup.Status, error) {
 		GOOS:       runtime.GOOS,
 		GOARCH:     runtime.GOARCH,
 		FindFFmpeg: findFFmpeg,
+		Pack:       pack,
 		OnProgress: func(st setup.Status) { a.emit(eventSetupProgress, st) },
 	})
 	a.setup = &setupJob{cancel: cancel, inst: inst}

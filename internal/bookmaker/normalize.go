@@ -86,6 +86,7 @@ var quoteStripper = strings.NewReplacer(
 type Normalizer struct {
 	dict               *pronunciationDict // viết tắt → cách đọc (mặc định nhúng sẵn + --pronunciations)
 	keepHeadingNumbers bool               // true = đọc số đầu tiêu đề ("một chấm hai"); false = bỏ
+	english            bool               // sách tiếng Anh: không áp luật tiếng Việt (xem english.go)
 }
 
 // defaultNormalizer — cấu hình mặc định (từ điển nhúng sẵn), dùng khi không
@@ -112,6 +113,9 @@ func normalizeReadingScript(original string) string {
 //
 // KHÔNG đổi nội dung chính của sách (PRD §5) — original_text giữ riêng.
 func (n *Normalizer) script(original string) string {
+	if n.english {
+		return n.scriptEN(original)
+	}
 	s := controlCharRe.ReplaceAllString(original, "")
 	s = quoteStripper.Replace(s)
 	s = dropPageNumberLines(s)
@@ -353,6 +357,9 @@ func (n *Normalizer) spokenTitle(title string) string {
 	t := dropLeadingSectionNumber(title)
 	if n.keepHeadingNumbers {
 		t = expandLeadingSectionNumber(title)
+		if n.english {
+			t = strings.TrimSpace(title) // Kokoro tự đọc "1.2" thành "one point two"
+		}
 	}
 	t = strings.ReplaceAll(t, ":", ",")
 	t = strings.ReplaceAll(t, " - ", ", ")

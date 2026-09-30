@@ -11,6 +11,15 @@ import (
 // máy muốn để bộ đọc ở ổ khác).
 const EnvDataDir = "SANO_DATA_DIR"
 
+// EnvKokoroDir — thư mục chứa mô hình Kokoro cho kokoro_gen_batch.py.
+const EnvKokoroDir = "SANO_KOKORO_DIR"
+
+// KokoroModelFile, KokoroVoicesFile — tên file mô hình Kokoro trong KokoroModels().
+const (
+	KokoroModelFile  = "kokoro-v1.0.int8.onnx"
+	KokoroVoicesFile = "voices-v1.0.bin"
+)
+
 // RuntimeDirName — thư mục con chứa bộ đọc trong thư mục dữ liệu app. Gỡ bộ đọc =
 // xoá đúng thư mục này (xem setup.Uninstall).
 const RuntimeDirName = "tts"
@@ -100,6 +109,24 @@ func (l Layout) Venv() string { return filepath.Join(l.VieNeu(), ".venv") }
 
 // Python — python trong venv.
 func (l Layout) Python() string { return VenvPython(l.Venv(), l.GOOS) }
+
+// Kokoro — gói giọng tiếng Anh (Kokoro-82M): venv Python riêng + mô hình, tách
+// khỏi venv VieNeu để cài/gỡ không ảnh hưởng nhau. Nằm trong Root nên gỡ bộ đọc là xoá luôn.
+func (l Layout) Kokoro() string { return filepath.Join(l.Root, "kokoro") }
+
+// KokoroVenv — môi trường Python của gói tiếng Anh (uv venv + uv pip install).
+func (l Layout) KokoroVenv() string { return filepath.Join(l.Kokoro(), "venv") }
+
+// KokoroPython — python trong venv tiếng Anh.
+func (l Layout) KokoroPython() string { return VenvPython(l.KokoroVenv(), l.GOOS) }
+
+// KokoroModels — thư mục chứa file mô hình Kokoro (onnx + voices).
+func (l Layout) KokoroModels() string { return filepath.Join(l.Kokoro(), "models") }
+
+// KokoroEnv — biến môi trường khi chạy python tiếng Anh: như Env, thêm chỗ để mô hình.
+func (l Layout) KokoroEnv() []string {
+	return append(l.Env(), EnvKokoroDir+"="+l.KokoroModels())
+}
 
 // Scripts — script đọc giọng giải nén từ bản nhúng trong app.
 func (l Layout) Scripts() string { return filepath.Join(l.Root, "scripts") }

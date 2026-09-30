@@ -10,6 +10,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -117,4 +118,50 @@ func TestInstallThat(t *testing.T) {
 		t.Fatalf("cài lỗi: %v\n%s", err, st.Hint)
 	}
 	t.Logf("xong sau %s; thư mục bộ đọc %s = %s", time.Since(start).Round(time.Second), l.Root, humanMB(DirSize(l.Root)))
+}
+
+// Cài thật gói giọng tiếng Anh (Kokoro): SANO_SETUP_ENGLISH=1 SANO_DATA_DIR=<thư mục tạm>.
+func TestInstallEnglishThat(t *testing.T) {
+	if os.Getenv("SANO_SETUP_ENGLISH") == "" {
+		t.Skip("đặt SANO_SETUP_ENGLISH=1 và SANO_DATA_DIR=<thư mục tạm> để cài thật gói tiếng Anh (cần mạng)")
+	}
+	data := os.Getenv(tts.EnvDataDir)
+	if data == "" || !filepath.IsAbs(data) {
+		t.Fatal("cần SANO_DATA_DIR là đường dẫn tuyệt đối tới thư mục tạm")
+	}
+	pins, err := ttsscripts.Pins()
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := tts.NewLayout(data, runtime.GOOS)
+	in := New(Config{
+		Layout: l, Pins: pins, Scripts: ttsscripts.Files, GOOS: runtime.GOOS, GOARCH: runtime.GOARCH, Pack: PackEnglish,
+		FindFFmpeg: func() string {
+			return tts.FindFFmpeg(os.Getenv, exec.LookPath, runtime.GOOS, l.FFmpeg())
+		},
+	})
+	err = in.Run(context.Background())
+	st := in.Status()
+	for _, s := range st.Steps {
+		t.Logf("%-14s %-8s %s", s.Key, s.State, s.Detail)
+	}
+	if err != nil {
+		t.Fatalf("cài lỗi: %v\n%s", err, st.Hint)
+	}
+	if !EnglishReady(l) {
+		t.Fatal("cài xong nhưng EnglishReady = false")
+	}
+	// Chạy lại: mọi bước phải bỏ qua.
+	in2 := New(Config{
+		Layout: l, Pins: pins, Scripts: ttsscripts.Files, GOOS: runtime.GOOS, GOARCH: runtime.GOARCH, Pack: PackEnglish,
+		FindFFmpeg: func() string { return tts.FindFFmpeg(os.Getenv, exec.LookPath, runtime.GOOS, l.FFmpeg()) },
+	})
+	if err := in2.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range in2.Status().Steps {
+		if s.Key != StepVerify && s.State != StateSkipped {
+			t.Errorf("chạy lại: bước %s = %s, muốn skipped", s.Key, s.State)
+		}
+	}
 }

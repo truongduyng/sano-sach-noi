@@ -137,7 +137,7 @@ func (a *App) BookVideoExtras(req VideoExtrasRequest) ([]VideoExtra, error) {
 			return nil, err
 		}
 		bookDict, _ := a.lib.BookDict(req.Slug)
-		norm, err := a.normalizerFor(false, bookDict)
+		norm, err := a.normalizerFor(voice, false, bookDict)
 		if err != nil {
 			return nil, err
 		}
@@ -146,7 +146,7 @@ func (a *App) BookVideoExtras(req VideoExtrasRequest) ([]VideoExtra, error) {
 			return nil, err
 		}
 		defer release()
-		t, err := a.tools()
+		t, err := a.toolsFor(voice)
 		if err != nil {
 			return nil, err
 		}

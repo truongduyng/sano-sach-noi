@@ -22,7 +22,7 @@ import (
 // pyproject.toml + uv.lock Sano chép đè vào mã VieNeu-TTS trước `uv sync`
 // (VieNeuProjectFiles); không giải nén cùng script.
 //
-//go:embed audio_gen.py audio_gen_batch.py models.py models.sha256 versions.env vieneu-project/pyproject.toml vieneu-project/uv.lock
+//go:embed audio_gen.py audio_gen_batch.py kokoro_gen_batch.py kokoro-requirements.txt models.py models.sha256 versions.env vieneu-project/pyproject.toml vieneu-project/uv.lock
 var Files embed.FS
 
 // VieNeuProjectFiles — file trong vieneu-project/ chép vào thư mục mã VieNeu-TTS: bỏ

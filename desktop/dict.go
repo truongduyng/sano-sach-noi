@@ -106,6 +106,10 @@ func (a *App) globalDict() map[string]string {
 }
 
 // normalizerFor dựng bộ chuẩn hóa: bộ chuẩn + từ điển chung + từ điển của cuốn.
-func (a *App) normalizerFor(keepHeadingNumbers bool, book map[string]string) (*bookmaker.Normalizer, error) {
+// voice — giọng của cuốn: giọng tiếng Anh dùng bộ chuẩn hóa tiếng Anh.
+func (a *App) normalizerFor(voice string, keepHeadingNumbers bool, book map[string]string) (*bookmaker.Normalizer, error) {
+	if bookmaker.IsEnglishVoice(voice) {
+		return bookmaker.NewEnglishNormalizer(keepHeadingNumbers, a.globalDict(), book), nil
+	}
 	return bookmaker.NewNormalizerWith(keepHeadingNumbers, a.globalDict(), book)
 }

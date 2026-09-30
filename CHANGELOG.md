@@ -1,5 +1,11 @@
 # Changelog
 
+## Chưa phát hành
+
+### Tính năng
+- **Sách tiếng Anh:** ở bước Chọn giọng đọc, chọn "Sách tiếng Anh" để đọc sách viết bằng tiếng Anh bằng giọng Kokoro-82M (12 giọng Mỹ và Anh, chạy trên máy, không cần API key). Lần đầu Sano tải gói giọng tiếng Anh (khoảng 165 MB), kiểm SHA256 rồi đọc thử một câu
+- **Nạp file .txt:** ngoài file Word, chọn hoặc kéo thả file .txt. File .txt là một đoạn văn liền mạch, lấy tên file làm tên sách
+
 ## v0.1.20 (29/09/2026)
 
 ### Tính năng
