@@ -141,7 +141,7 @@ type DocxFile struct {
 }
 
 // ErrNotDocx — file không phải .docx.
-var ErrNotDocx = errors.New("chỉ nhận file Word .docx")
+var ErrNotDocx = errors.New("chỉ nhận file Word .docx hoặc văn bản .txt")
 
 // ErrRightsNotConfirmed — chưa tick xác nhận có quyền dùng tài liệu (bước Nghe thử).
 var ErrRightsNotConfirmed = errors.New("hãy xác nhận bạn có quyền dùng tài liệu này trước khi render")
@@ -153,8 +153,8 @@ func (a *App) ChooseDocx() (*DocxFile, error) {
 		return nil, errors.New("ứng dụng chưa khởi động xong")
 	}
 	path, err := wruntime.OpenFileDialog(a.ctx, wruntime.OpenDialogOptions{
-		Title:   "Chọn file Word",
-		Filters: []wruntime.FileFilter{{DisplayName: "File Word (*.docx)", Pattern: "*.docx"}},
+		Title:   "Chọn file Word hoặc văn bản",
+		Filters: []wruntime.FileFilter{{DisplayName: "File Word, văn bản (*.docx, *.txt)", Pattern: "*.docx;*.txt"}},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("mở hộp chọn file: %w", err)
@@ -162,12 +162,48 @@ func (a *App) ChooseDocx() (*DocxFile, error) {
 	if path == "" {
 		return nil, nil
 	}
-	return describeDocx(path)
+	return a.describeInput(path)
 }
 
-// DescribeDocx đọc thông tin file .docx được kéo thả vào cửa sổ.
+// DescribeDocx đọc thông tin file .docx (hoặc .txt) được kéo thả vào cửa sổ.
 func (a *App) DescribeDocx(path string) (*DocxFile, error) {
-	return describeDocx(path)
+	return a.describeInput(path)
+}
+
+// describeInput nhận .docx như cũ; file .txt được đổi thành .docx tạm trong
+// ~/Sano/.tam rồi đi tiếp luồng cũ, tên hiện ra vẫn là tên file gốc.
+func (a *App) describeInput(path string) (*DocxFile, error) {
+	if !strings.EqualFold(filepath.Ext(path), ".txt") {
+		return describeDocx(path)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("đọc file: %w", err)
+	}
+	if info.IsDir() {
+		return nil, ErrNotDocx
+	}
+	if info.Size() > bookmaker.MaxPastedTextBytes {
+		return nil, fmt.Errorf("file quá dài (hơn %d MB)", bookmaker.MaxPastedTextBytes>>20)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("đọc file: %w", err)
+	}
+	base := filepath.Base(path)
+	data, err := bookmaker.PlainTextToDocx(string(raw), strings.TrimSuffix(base, filepath.Ext(base)))
+	if err != nil {
+		return nil, err
+	}
+	dir := filepath.Join(a.lib.Root(), ".tam")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, fmt.Errorf("tạo thư mục tạm: %w", err)
+	}
+	tmp := filepath.Join(dir, "File-txt.docx")
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return nil, fmt.Errorf("ghi file tạm: %w", err)
+	}
+	return &DocxFile{Path: tmp, Name: base, Size: info.Size()}, nil
 }
 
 func describeDocx(path string) (*DocxFile, error) {

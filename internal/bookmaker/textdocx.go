@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
@@ -126,3 +127,53 @@ const textDocxContentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="y
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
 </Types>`
+
+// chapterLineRe nhận dòng đầu chương trong file .txt không có dấu #.
+var chapterLineRe = regexp.MustCompile(`(?i)^(chương|chuong|chapter|phần|phan|part)\s+([0-9]+|[ivxlc]+)\b`)
+
+// PlainTextToDocx đổi nội dung file .txt người dùng chọn thành .docx tạm.
+// File đã có dòng "#" / "%" thì theo đúng quy ước của TextToDocx. Không có thì
+// dòng "Chương N …" / "Chapter N …" là đầu chương; vẫn không có thì cả file là
+// một chương lấy tên file (title) làm tên.
+func PlainTextToDocx(text, title string) ([]byte, error) {
+	text = strings.TrimPrefix(text, "\ufeff")
+	if len(text) > MaxPastedTextBytes {
+		return nil, fmt.Errorf("file quá dài (hơn %d MB)", MaxPastedTextBytes>>20)
+	}
+	if !utf8.ValidString(text) {
+		return nil, errors.New("file .txt không phải mã hoá UTF-8, hãy mở bằng Notepad rồi lưu lại với mã hoá UTF-8")
+	}
+	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
+	marked, chapters := false, 0
+	for _, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if strings.HasPrefix(line, "#") || strings.HasPrefix(line, "%") {
+			marked = true
+			break
+		}
+		if chapterLineRe.MatchString(line) {
+			chapters++
+		}
+	}
+	if marked {
+		return TextToDocx(text)
+	}
+	var b strings.Builder
+	if chapters == 0 {
+		title = strings.TrimSpace(title)
+		if title == "" {
+			title = "Nội dung"
+		}
+		b.WriteString("# " + title + "\n")
+	}
+	for _, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if chapters > 0 && chapterLineRe.MatchString(line) {
+			b.WriteString("# " + line + "\n")
+		} else if line != "" {
+			// đoạn văn thường: bỏ dấu đầu dòng markdown giả để không bị coi là tiêu đề
+			b.WriteString(line + "\n")
+		}
+	}
+	return TextToDocx(b.String())
+}
