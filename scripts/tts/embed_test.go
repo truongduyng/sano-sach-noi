@@ -115,3 +115,32 @@ func TestVieNeuProject_DungCommit(t *testing.T) {
 		}
 	}
 }
+
+// Gói giọng tiếng Anh: đủ ghim mô hình, thư viện cài bằng hash, script nhúng.
+func TestKokoroPins(t *testing.T) {
+	pins, err := Pins()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"KOKORO_MODEL_URL", "KOKORO_MODEL_SHA256", "KOKORO_VOICES_URL", "KOKORO_VOICES_SHA256"} {
+		if pins[k] == "" {
+			t.Errorf("versions.env thiếu %s", k)
+		}
+	}
+	req, err := Files.ReadFile("kokoro-requirements.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// cài bằng --require-hashes: mọi dòng "gói==bản" phải kèm --hash
+	for _, blk := range strings.Split(string(req), "\n") {
+		if strings.Contains(blk, "==") && !strings.HasPrefix(blk, "#") && !strings.HasPrefix(blk, " ") && !strings.HasSuffix(blk, "\\") {
+			t.Errorf("gói không có hash (dòng phải kết thúc bằng \\): %q", blk)
+		}
+	}
+	if !strings.Contains(string(req), "kokoro-onnx==") || !strings.Contains(string(req), "--hash=sha256:") {
+		t.Error("kokoro-requirements.txt thiếu kokoro-onnx hoặc hash")
+	}
+	if _, err := Files.ReadFile("kokoro_gen_batch.py"); err != nil {
+		t.Error(err)
+	}
+}

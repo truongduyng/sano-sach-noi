@@ -35,6 +35,7 @@
 - **Nghe trên điện thoại**: bấm một nút, Sano tạo file M4B có mục lục chương và bìa rồi dẫn từng bước chép sang iPhone, Android, nghe bằng app BookPlayer miễn phí
 - **Nghe khi lái xe ô tô**: BookPlayer chạy trên CarPlay và Android Auto, chọn sách, chọn chương ngay trên màn hình xe
 - **25 giọng đọc AI tiếng Việt**: nam, nữ, giọng Bắc, Trung, Nam
+- **Sách tiếng Anh**: 12 giọng Mỹ và Anh (Kokoro-82M), cài thêm một lần khi cần, cũng chạy trên máy
 - **Không cần API key, không tốn tiền token**: mô hình AI tải về một lần rồi chạy ngay trên máy, không cần tài khoản ChatGPT hay dịch vụ AI nào; tài liệu không gửi lên mạng
 
 ## Nghe thử

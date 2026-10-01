@@ -94,6 +94,43 @@ func (a *App) tools() (toolPaths, error) {
 	return findTools()
 }
 
+// toolsFor chọn bộ đọc theo giọng: giọng tiếng Anh dùng gói Kokoro, còn lại VieNeu.
+func (a *App) toolsFor(voice string) (toolPaths, error) {
+	if a.Installing() {
+		return toolPaths{}, errors.New("đang cài bộ đọc — đợi cài xong rồi thử lại")
+	}
+	if bookmaker.IsEnglishVoice(voice) {
+		return findEnglishTools()
+	}
+	return findTools()
+}
+
+// ErrEnglishNotInstalled — chưa cài gói giọng tiếng Anh (giao diện dựa vào đoạn
+// "gói giọng tiếng Anh" trong lỗi để mời cài).
+var ErrEnglishNotInstalled = errors.New("chưa cài gói giọng tiếng Anh (cài trong Cài đặt → Bộ đọc)")
+
+// findEnglishTools — python venv Kokoro + kokoro_gen_batch.py + ffmpeg.
+func findEnglishTools() (toolPaths, error) {
+	l, err := layout()
+	if err != nil {
+		return toolPaths{}, err
+	}
+	rt := ttsRuntime()
+	t := toolPaths{python: l.KokoroPython(), ffmpeg: findFFmpeg(), env: l.KokoroEnv()}
+	if rt.ScriptsDir != "" {
+		t.script = filepath.Join(rt.ScriptsDir, "kokoro_gen_batch.py")
+	}
+	switch {
+	case !fileExists(t.python) || !fileExists(filepath.Join(l.KokoroModels(), tts.KokoroModelFile)):
+		return t, ErrEnglishNotInstalled
+	case t.script == "" || !fileExists(t.script):
+		return t, fmt.Errorf("không thấy script đọc giọng tiếng Anh scripts/tts/kokoro_gen_batch.py — đặt biến %s", tts.EnvScripts)
+	case t.ffmpeg == "":
+		return t, fmt.Errorf("không tìm thấy ffmpeg. %s", tts.FFmpegHint(runtime.GOOS))
+	}
+	return t, nil
+}
+
 func findTools() (toolPaths, error) {
 	rt := ttsRuntime()
 	t := toolPaths{python: rt.Python, ffmpeg: findFFmpeg(), env: rt.Env}
@@ -116,7 +153,7 @@ func (t toolPaths) ttsConfig(voice string) bookmaker.TTSConfig {
 		voice = bookmaker.DefaultVoice
 	}
 	return bookmaker.TTSConfig{
-		Mode:      bookmaker.TTSModeVieNeu,
+		Mode:      bookmaker.TTSModeVieNeu, // cả bộ đọc Kokoro: cùng giao diện script (--voice, ✨ <stem>_full.wav)
 		Python:    t.python,
 		Script:    t.script,
 		ScriptDir: filepath.Dir(t.script),
@@ -131,12 +168,17 @@ func (t toolPaths) ttsConfig(voice string) bookmaker.TTSConfig {
 // options dựng bookmaker.Options từ lựa chọn của người dùng.
 // global — từ điển chung của người dùng (nil = chỉ bộ chuẩn).
 func (s BookSettings) options(t toolPaths, outDir string, global map[string]string) (bookmaker.Options, error) {
-	if !strings.EqualFold(filepath.Ext(s.Path), ".docx") {
+	if !bookmaker.IsSupportedInput(s.Path) {
 		return bookmaker.Options{}, ErrNotDocx
 	}
-	norm, err := bookmaker.NewNormalizerWith(s.KeepHeadingNumbers, global, s.Pronunciations)
-	if err != nil {
-		return bookmaker.Options{}, err
+	var norm *bookmaker.Normalizer
+	if bookmaker.IsEnglishVoice(s.Voice) {
+		norm = bookmaker.NewEnglishNormalizer(s.KeepHeadingNumbers, global, s.Pronunciations)
+	} else {
+		var err error
+		if norm, err = bookmaker.NewNormalizerWith(s.KeepHeadingNumbers, global, s.Pronunciations); err != nil {
+			return bookmaker.Options{}, err
+		}
 	}
 	drop := map[string]bool{}
 	for _, st := range s.DropStems {
@@ -211,7 +253,7 @@ func (a *App) PreviewClips(s BookSettings, stems []string) ([]Clip, error) {
 		return nil, err
 	}
 	defer release()
-	t, err := a.tools()
+	t, err := a.toolsFor(s.Voice)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +286,7 @@ func (a *App) SpeakSample(voice, text string) (string, error) {
 		return "", err
 	}
 	defer release()
-	t, err := a.tools()
+	t, err := a.toolsFor(voice)
 	if err != nil {
 		return "", err
 	}
@@ -289,7 +331,7 @@ func (a *App) StartRender(s BookSettings) (*RenderStatus, error) {
 		return nil, err
 	}
 	defer release()
-	t, err := a.tools()
+	t, err := a.toolsFor(s.Voice)
 	if err != nil {
 		return nil, err
 	}

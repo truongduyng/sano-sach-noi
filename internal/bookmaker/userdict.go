@@ -95,7 +95,7 @@ func CountWord(text, word string) int {
 
 // CountWordsInDocx đếm từng từ trong chữ của file Word (mọi tiểu mục, cả tiêu đề).
 func CountWordsInDocx(path string, words []string) (map[string]int, error) {
-	book, err := ParseDocx(path)
+	book, err := ParseInput(path)
 	if err != nil {
 		return nil, err
 	}

@@ -22,7 +22,7 @@ export interface TTSStatus {
 
 /** Một dòng tiến độ cài bộ đọc (khớp setup.Step bên Go). */
 export interface SetupStep {
-  key: 'python' | 'vieneu' | 'models' | 'ffmpeg' | 'verify'
+  key: 'python' | 'vieneu' | 'models' | 'kokoro' | 'kokoro-models' | 'ffmpeg' | 'verify'
   label: string
   state: 'pending' | 'running' | 'done' | 'skipped' | 'error'
   pct: number
@@ -40,6 +40,13 @@ export interface SetupStatus {
   etaSec: number
   logFile: string
   seq: number // tăng dần; sự kiện tới không theo thứ tự thì bỏ bản cũ hơn
+  pack: '' | 'en' // '' = bộ đọc VieNeu (tiếng Việt), 'en' = gói giọng tiếng Anh
+}
+
+/** Gói giọng tiếng Anh (Kokoro): đã cài chưa, cần tải bao nhiêu (khớp EnglishPackInfo bên Go). */
+export interface EnglishPackInfo {
+  ready: boolean
+  downloadBytes: number
 }
 
 /** Máy người dùng + dung lượng/thời gian cài (khớp setup.Info). */
@@ -356,6 +363,9 @@ interface GoApp {
   SetupInfo(): Promise<SetupInfo>
   SetupStatus(): Promise<SetupStatus>
   StartSetup(): Promise<SetupStatus>
+  EnglishPack(): Promise<EnglishPackInfo>
+  EnglishVoices(): Promise<Voice[]>
+  StartEnglishSetup(): Promise<SetupStatus>
   CancelSetup(): Promise<void>
   UninstallTTS(): Promise<UninstallResult>
   ThirdPartyNotices(): Promise<string>
@@ -546,7 +556,7 @@ const mockSetupInfo: SetupInfo = {
 export function mockSetupStatus(): SetupStatus {
   const step = (key: SetupStep['key'], label: string): SetupStep => ({ key, label, state: 'pending', pct: 0, detail: '' })
   return {
-    running: false, done: false, cancelled: false, error: '', hint: '', elapsedSec: 0, etaSec: -1, logFile: '', seq: 0,
+    running: false, done: false, cancelled: false, error: '', hint: '', elapsedSec: 0, etaSec: -1, logFile: '', seq: 0, pack: '',
     steps: [
       step('python', 'Python'), step('vieneu', 'Bộ đọc VieNeu-TTS'), step('models', 'Mô hình giọng đọc (580 MB)'),
       step('ffmpeg', 'ffmpeg (ghi file MP3)'), step('verify', 'Kiểm tra đọc thử'),
@@ -569,6 +579,28 @@ export async function setupStatus(): Promise<SetupStatus> {
 /** Bắt đầu cài bộ đọc (tiến độ qua sự kiện setup:progress / setup:finished). */
 export async function startSetup(): Promise<SetupStatus> {
   return need().StartSetup()
+}
+
+/** Gói giọng tiếng Anh đã cài chưa. */
+export async function englishPack(): Promise<EnglishPackInfo> {
+  const app = goApp()
+  if (!app) return { ready: false, downloadBytes: 165 << 20 }
+  return app.EnglishPack()
+}
+
+/** Giọng tiếng Anh (danh sách cố định của gói Kokoro). */
+export async function englishVoices(): Promise<Voice[]> {
+  const app = goApp()
+  if (!app) {
+    const v = (name: string, desc: string, featured = false) => ({ name, desc, featured })
+    return [v('Heart', 'Nữ · Mỹ · Ấm, tự nhiên (chất lượng cao nhất)', true), v('Michael', 'Nam · Mỹ · Trầm, vững', true), v('Emma', 'Nữ · Anh · Điềm đạm', true), v('George', 'Nam · Anh · Trầm, kể chuyện', true)]
+  }
+  return app.EnglishVoices()
+}
+
+/** Cài gói giọng tiếng Anh (tiến độ qua cùng sự kiện setup:progress, status.pack = 'en'). */
+export async function startEnglishSetup(): Promise<SetupStatus> {
+  return need().StartEnglishSetup()
 }
 
 export async function cancelSetup(): Promise<void> {
@@ -606,7 +638,7 @@ export async function thirdPartyNotices(): Promise<string> {
   return (await goApp()?.ThirdPartyNotices()) ?? ''
 }
 
-/** Mở hộp chọn file .docx của hệ điều hành. Huỷ → null. */
+/** Mở hộp chọn file .docx, .pdf hoặc .txt của hệ điều hành. Huỷ → null. */
 export async function chooseDocx(): Promise<DocxFile | null> {
   const app = goApp()
   if (!app) return { path: '/giả/ky-nang-giao-tiep.docx', name: 'ky-nang-giao-tiep.docx', size: 1_468_006 }

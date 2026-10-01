@@ -22,8 +22,8 @@ func TestDescribeDocx(t *testing.T) {
 		t.Errorf("sai thông tin file: %+v", got)
 	}
 
-	if _, err := describeDocx(filepath.Join(dir, "a.pdf")); !errors.Is(err, ErrNotDocx) {
-		t.Errorf("file .pdf phải trả ErrNotDocx, được %v", err)
+	if _, err := describeDocx(filepath.Join(dir, "a.doc")); !errors.Is(err, ErrNotDocx) {
+		t.Errorf("file .doc phải trả ErrNotDocx, được %v", err)
 	}
 	if _, err := describeDocx(filepath.Join(dir, "khong-co.docx")); err == nil {
 		t.Error("file không tồn tại phải báo lỗi")

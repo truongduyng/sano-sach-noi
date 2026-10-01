@@ -6,10 +6,10 @@ import {
   cancelRender as goCancelRender, checkTTS, describeDocx, errText, inspectDocx, library as goLibrary,
   listVoices, onEvent, previewClips, renderStatus, startRender as goStartRender, version as goVersion,
   cancelSetup as goCancelSetup, mockSetupStatus, setupInfo as goSetupInfo, setupStatus as goSetupStatus,
-  startSetup as goStartSetup, acceptTermsVersion, termsStatus, checkUpdate,
+  startSetup as goStartSetup, englishPack, englishVoices, startEnglishSetup as goStartEnglishSetup, acceptTermsVersion, termsStatus, checkUpdate,
   startUpdate as goStartUpdate, cancelUpdate as goCancelUpdate, updateStatus as goUpdateStatus,
   applyUpdate as goApplyUpdate, applyUpdateOnQuit as goApplyUpdateOnQuit, countWords, setGlobalPronunciation,
-  type BookSettings, type TermsStatus, type Clip, type DocxFile, type LibraryInfo, type Outline, type ReadingEdit,
+  type BookSettings, type EnglishPackInfo, type TermsStatus, type Clip, type DocxFile, type LibraryInfo, type Outline, type ReadingEdit,
   type RenderStatus, type SetupInfo, type SetupStatus, type TTSStatus, type UpdateInfo, type UpdateStatus, type Voice,
 } from './backend'
 import { TERMS_VERSION } from './terms'
@@ -128,6 +128,12 @@ export const state = reactive({
   setup: mockSetupStatus() as SetupStatus,
   setupInfo: null as SetupInfo | null,
   setupError: '', // lỗi khi bấm Cài (vd đang render) — khác lỗi trong lúc cài
+
+  // Gói giọng tiếng Anh (Kokoro): cài riêng, tiến độ riêng
+  english: { ready: false, downloadBytes: 0 } as EnglishPackInfo,
+  englishVoices: [] as Voice[],
+  setupEn: { ...mockSetupStatus(), pack: 'en' } as SetupStatus,
+  setupEnError: '',
 
   // B1 Cách đọc: 1 đọc nguyên văn (mặc định), 2 làm mượt, 3 viết lại.
   // levelScreen 'ai' = màn nhờ AI (cấp 2/3) trước khi sang Nạp file.
@@ -339,7 +345,7 @@ export async function setFile(f: DocxFile) {
     const o = await inspectDocx(f.path, state.keepHeadingNumbers)
     state.outline = o
     state.toc = buildToc(o)
-    state.title = o.title || capitalize(o.fileTitle || f.name.replace(/\.docx$/i, '').replace(/[-_]+/g, ' ').trim())
+    state.title = o.title || capitalize(o.fileTitle || f.name.replace(/\.(docx|txt)$/i, '').replace(/[-_]+/g, ' ').trim())
     state.sampleSentence = o.sampleSentence
     state.clips = []
     state.heard = []
@@ -411,7 +417,17 @@ function capitalize(s: string) {
   return s ? s.charAt(0).toLocaleUpperCase('vi') + s.slice(1) : s
 }
 
+/** Giọng đang chọn là giọng tiếng Anh (sách tiếng Anh). */
+export function isEnglishVoice(name: string) {
+  return state.englishVoices.some((v) => v.name === name)
+}
+
 export function defaultIntro() {
+  if (isEnglishVoice(state.voice)) {
+    const en = ['You are listening to an audiobook.', `Book: ${state.title.trim() || 'Untitled'}.`]
+    if (state.author.trim()) en.push(`Author: ${state.author.trim()}.`)
+    return en.join('\n\n')
+  }
   const lines = ['Bạn đang nghe sách nói.', `Cuốn sách: ${state.title.trim() || 'chưa đặt tên'}.`]
   if (state.author.trim()) lines.push(`Tác giả: ${state.author.trim()}.`)
   return lines.join('\n\n')
@@ -617,7 +633,31 @@ export async function refreshSetupInfo() {
 
 /** Nhận trạng thái cài mới nhất; bỏ bản cũ hơn (sự kiện có thể tới lệch thứ tự). */
 function applySetup(st: SetupStatus) {
-  if (st.seq >= state.setup.seq) state.setup = st
+  if (st.pack === 'en') {
+    if (st.seq >= state.setupEn.seq) state.setupEn = st
+  } else if (st.seq >= state.setup.seq) {
+    state.setup = st
+  }
+}
+
+/** Nạp danh sách giọng tiếng Anh + gói đã cài chưa (gọi khi mở bước chọn giọng). */
+export async function loadEnglish() {
+  try {
+    const [voices, pack] = await Promise.all([englishVoices(), englishPack()])
+    state.englishVoices = voices
+    state.english = pack
+  } catch {
+    // không có thì bước chọn giọng chỉ hiện tiếng Việt
+  }
+}
+
+export async function startEnglishSetup() {
+  state.setupEnError = ''
+  try {
+    applySetup(await goStartEnglishSetup())
+  } catch (e) {
+    state.setupEnError = errText(e)
+  }
 }
 
 export async function startSetup() {
@@ -635,6 +675,7 @@ export async function cancelSetup() {
 
 async function onSetupFinished(st: SetupStatus) {
   applySetup(st)
+  if (st.pack === 'en') return void (await loadEnglish())
   await Promise.all([refreshTTS(), refreshSetupInfo()])
   state.voices = [] // bộ đọc đổi → hỏi lại danh sách giọng
 }
@@ -651,6 +692,7 @@ export async function init() {
     /* giữ trạng thái ban đầu */
   }
   state.version = await goVersion()
+  void loadEnglish()
   const [st] = await Promise.all([renderStatus(), refreshLibrary()])
   if (st?.running) state.render = st // mở lại cửa sổ khi đang render
   const upd = await goUpdateStatus()

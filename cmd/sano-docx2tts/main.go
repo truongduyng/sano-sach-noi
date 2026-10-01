@@ -36,7 +36,7 @@ import (
 
 func main() {
 	var (
-		input      = flag.String("input", "", "file .docx nguồn (bắt buộc)")
+		input      = flag.String("input", "", "file .docx (hoặc .pdf có lớp chữ, .txt: một đoạn văn liền mạch) nguồn (bắt buộc)")
 		outputDir  = flag.String("output-dir", "", "thư mục đầu ra (bắt buộc)")
 		title      = flag.String("title", "", "ghi đè tiêu đề sách (mặc định: lấy từ docx)")
 		author     = flag.String("author", "", "tác giả")
@@ -121,8 +121,8 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if !strings.EqualFold(filepath.Ext(*input), ".docx") {
-		log.Fatalf("--input phải là file .docx: %q", *input)
+	if !bookmaker.IsSupportedInput(*input) {
+		log.Fatalf("--input phải là file .docx, .pdf hoặc .txt: %q", *input)
 	}
 	// Chuyển output-dir sang tuyệt đối: renderVieNeu đặt cwd của python = output-dir
 	// nhưng truyền path .txt theo output-dir; nếu output-dir tương đối thì path .txt
@@ -149,6 +149,19 @@ func main() {
 	}
 	if headingErr != nil {
 		log.Fatal(headingErr)
+	}
+	if bookmaker.IsEnglishVoice(*voice) { // giọng Kokoro: bộ chuẩn hoá tiếng Anh (từ điển chỉ gồm --pronunciations)
+		var layer map[string]string
+		if f := strings.TrimSpace(*pronFile); f != "" {
+			data, rerr := os.ReadFile(f)
+			if rerr != nil {
+				log.Fatalf("từ điển cách đọc: %v", rerr)
+			}
+			if layer, err = bookmaker.ParsePronunciations(string(data), f); err != nil {
+				log.Fatalf("từ điển cách đọc: %v", err)
+			}
+		}
+		norm = bookmaker.NewEnglishNormalizer(keepNums, layer)
 	}
 
 	pyDefault, scrDefault := bookmaker.TTSDefaults()

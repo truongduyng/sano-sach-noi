@@ -334,7 +334,7 @@ onMounted(() => {
     if (importPath.value || arranging.value || dragKey.value || Date.now() - dragEndedAt < 1500) return
     const zip = paths.find((p) => /\.zip$/i.test(p))
     if (zip) importPath.value = zip
-    else if (paths.length) actionError.value = /\.docx$/i.test(paths[0]) ? 'File Word thì vào Tạo sách nói. Ở đây chỉ nhập gói sách .zip.' : 'Chỉ nhập được gói sách .zip.'
+    else if (paths.length) actionError.value = /\.(docx|pdf|txt)$/i.test(paths[0]) ? 'File Word, PDF hoặc .txt thì vào Tạo sách nói. Ở đây chỉ nhập gói sách .zip.' : 'Chỉ nhập được gói sách .zip.'
   })
   window.addEventListener('dragenter', onDragEnter)
   window.addEventListener('dragleave', onDragLeave)
@@ -487,7 +487,7 @@ const progressText = (p: number) => (p >= 99 ? 'Đã nghe xong' : p === 0 ? 'Ch�
       <!-- Thư viện trống -->
       <div v-if="state.library && !books.length" class="mt-10 rounded-xl border-2 border-dashed border-border p-10 text-center">
         <p class="font-medium">Chưa có cuốn nào</p>
-        <p class="mt-1 text-sm text-muted-foreground">Tạo sách nói từ file Word, hoặc nhập gói sách (.zip) người khác gửi cho bạn.</p>
+        <p class="mt-1 text-sm text-muted-foreground">Tạo sách nói từ file Word, PDF hoặc .txt, hoặc nhập gói sách (.zip) người khác gửi cho bạn.</p>
         <div class="mt-4 flex justify-center gap-2">
           <Button @click="go('create')"><FilePlus2 class="w-4 h-4" /> Tạo sách nói</Button>
           <Button variant="outline" @click="pickZip"><Upload class="w-4 h-4" /> Nhập sách</Button>
@@ -697,7 +697,7 @@ const progressText = (p: number) => (p >= 99 ? 'Đã nghe xong' : p === 0 ? 'Ch�
       <div class="text-center">
         <FileArchive class="w-10 h-10 mx-auto text-primary" />
         <p class="mt-3 font-medium">Thả gói sách (.zip) để nhập vào thư viện</p>
-        <p class="mt-1 text-sm text-muted-foreground">File .docx thì vào Tạo sách nói</p>
+        <p class="mt-1 text-sm text-muted-foreground">File .docx, .pdf, .txt thì vào Tạo sách nói</p>
       </div>
     </div>
 

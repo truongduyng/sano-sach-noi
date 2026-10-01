@@ -66,6 +66,7 @@ type Status struct {
 	ElapsedSec float64 `json:"elapsedSec"`
 	EtaSec     float64 `json:"etaSec"` // -1 = chưa ước được
 	LogFile    string  `json:"logFile"`
+	Pack       string  `json:"pack"` // "" = bộ đọc VieNeu, "en" = gói giọng tiếng Anh
 	// Seq tăng dần mỗi lần trạng thái đổi: sự kiện có thể tới giao diện không
 	// theo thứ tự (Wails gửi mỗi sự kiện một goroutine), giao diện bỏ bản cũ hơn.
 	Seq uint64 `json:"seq"`
@@ -81,6 +82,14 @@ type Config struct {
 	HTTP       *http.Client
 	FindFFmpeg func() string // ffmpeg có sẵn (máy hoặc app đã tải), "" nếu chưa có
 	OnProgress func(Status)
+	// Pack — "" = bộ đọc VieNeu (tiếng Việt); PackEnglish = gói giọng tiếng Anh (Kokoro).
+	Pack string
+}
+
+// installStep — một bước cài: khoá dòng tiến độ + hàm chạy.
+type installStep struct {
+	key string
+	fn  func(context.Context) error
 }
 
 // statusSeq — số thứ tự trạng thái, chung cho mọi lượt cài (lượt mới luôn lớn hơn).
@@ -102,7 +111,12 @@ func New(cfg Config) *Installer {
 		// Không đặt Timeout tổng (tải mô hình lâu); huỷ qua context.
 		cfg.HTTP = &http.Client{}
 	}
-	return &Installer{cfg: cfg, st: InitialStatus(), log: log.New(io.Discard, "", 0)}
+	st := InitialStatus()
+	if cfg.Pack == PackEnglish {
+		st = InitialEnglishStatus()
+	}
+	st.Pack = cfg.Pack
+	return &Installer{cfg: cfg, st: st, log: log.New(io.Discard, "", 0)}
 }
 
 // InitialStatus — các dòng chưa chạy (giao diện hiện trước khi bấm Cài).
@@ -154,15 +168,15 @@ func (in *Installer) Run(ctx context.Context) (err error) {
 		in.failRunning(err)
 		return err
 	}
-	steps := []struct {
-		key string
-		fn  func(context.Context) error
-	}{
+	steps := []installStep{
 		{StepPython, in.stepPython},
 		{StepVieNeu, in.stepVieNeu},
 		{StepModels, in.stepModels},
 		{StepFFmpeg, in.stepFFmpeg},
 		{StepVerify, in.stepVerify},
+	}
+	if in.cfg.Pack == PackEnglish {
+		steps = in.englishSteps()
 	}
 	for _, s := range steps {
 		if err = ctx.Err(); err != nil {
@@ -198,7 +212,11 @@ func (in *Installer) prepare() error {
 	if err != nil {
 		return nil // không đo được thì bỏ qua, không chặn cài
 	}
-	need := RequiredBytes - DirSize(l.Root)
+	required := RequiredBytes
+	if in.cfg.Pack == PackEnglish {
+		required = EnglishRequiredBytes
+	}
+	need := required - DirSize(l.Root)
 	if need < minFreeBytes {
 		need = minFreeBytes
 	}
