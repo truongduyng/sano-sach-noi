@@ -60,5 +60,6 @@ Sano gọi ffmpeg như một chương trình riêng (chuyển WAV → MP3), khô
 - node-qrcode (mã QR tải app nghe sách) — MIT — https://github.com/soldair/node-qrcode
 - lucide (biểu tượng) — ISC — https://github.com/lucide-icons/lucide
 - golang.org/x/sys — BSD-3-Clause — https://go.googlesource.com/sys
+- github.com/ledongthuc/pdf (đọc chữ trong file PDF) — BSD-3-Clause — https://github.com/ledongthuc/pdf
 - github.com/ulikunitz/xz (giải nén bản ffmpeg Linux) — BSD-3-Clause — https://github.com/ulikunitz/xz
 - Các thư viện Go / npm khác: xem `go.mod`, `desktop/go.mod`, `desktop/frontend/package.json` (đều MIT, BSD hoặc Apache-2.0).

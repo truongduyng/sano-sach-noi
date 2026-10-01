@@ -12,16 +12,22 @@ import (
 // MaxPlainTextBytes — giới hạn file .txt nạp trực tiếp.
 const MaxPlainTextBytes = 8 << 20
 
-// IsSupportedInput — đuôi file Sano nhận làm tài liệu: .docx hoặc .txt.
+// IsSupportedInput — đuôi file Sano nhận làm tài liệu: .docx, .txt hoặc .pdf.
 func IsSupportedInput(path string) bool {
-	ext := filepath.Ext(path)
-	return strings.EqualFold(ext, ".docx") || strings.EqualFold(ext, ".txt")
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".docx", ".txt", ".pdf":
+		return true
+	}
+	return false
 }
 
-// ParseInput nạp .txt (một đoạn văn liền mạch) hoặc .docx (nhiều cấp).
+// ParseInput nạp .txt (một đoạn văn liền mạch), .pdf (có lớp chữ) hoặc .docx (nhiều cấp).
 func ParseInput(path string) (*Book, error) {
-	if strings.EqualFold(filepath.Ext(path), ".txt") {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".txt":
 		return ParseText(path)
+	case ".pdf":
+		return ParsePDF(path)
 	}
 	return ParseDocx(path)
 }

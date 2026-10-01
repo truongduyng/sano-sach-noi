@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// B1 Nạp file: hộp chọn file .docx hoặc .txt (Wails) hoặc kéo thả → nạp thật: mục lục,
+// B1 Nạp file: hộp chọn file .docx, .pdf hoặc .txt (Wails) hoặc kéo thả → nạp thật: mục lục,
 // số ký tự, cảnh báo lúc nạp (hình, bảng, tiêu đề gõ tay, viết tắt chưa có).
 // Cấp 2/3 (bước Cách đọc): nạp file AI tạo, hoặc dán văn bản AI trả về (Gemini).
 // Cấp 1 không nhắc tới AI.
@@ -191,7 +191,7 @@ const fake = computed(() => (w.value?.fakeHeadings ?? []).slice(0, 2).map((s) =>
 
 <template>
   <div class="max-w-2xl">
-    <h1 class="text-xl font-semibold tracking-tight">{{ viaAI ? 'Nạp file AI tạo' : 'Nạp file Word hoặc .txt' }}</h1>
+    <h1 class="text-xl font-semibold tracking-tight">{{ viaAI ? 'Nạp file AI tạo' : 'Nạp file Word, PDF hoặc .txt' }}</h1>
     <p class="text-sm text-muted-foreground">
       Cấp {{ state.level }} · {{ levelTitles[state.level] }} <button class="text-primary hover:underline ml-1" @click="changeLevel">Đổi</button>
       <template v-if="!viaAI"> · Sano đọc mục lục từ kiểu Heading 1 / Heading 2 trong file.
@@ -214,7 +214,7 @@ const fake = computed(() => (w.value?.fakeHeadings ?? []).slice(0, 2).map((s) =>
       <button class="mt-5 w-full h-56 rounded-xl border-2 border-dashed border-border grid place-items-center hover:border-primary/50 hover:bg-primary/5" :disabled="picking" @click="pick">
         <span class="text-center">
           <Upload class="w-8 h-8 mx-auto text-muted-foreground" />
-          <span class="block mt-3 font-medium">{{ viaAI ? 'Kéo file Word AI tạo vào đây' : 'Kéo file .docx hoặc .txt vào đây' }}</span>
+          <span class="block mt-3 font-medium">{{ viaAI ? 'Kéo file Word AI tạo vào đây' : 'Kéo file .docx, .pdf hoặc .txt vào đây' }}</span>
           <span class="block text-sm text-muted-foreground">hoặc bấm để chọn file</span>
         </span>
       </button>

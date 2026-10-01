@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
@@ -141,7 +140,7 @@ type DocxFile struct {
 }
 
 // ErrNotDocx — file không phải .docx.
-var ErrNotDocx = errors.New("chỉ nhận file Word .docx hoặc văn bản .txt")
+var ErrNotDocx = errors.New("chỉ nhận file Word .docx, PDF .pdf hoặc văn bản .txt")
 
 // ErrRightsNotConfirmed — chưa tick xác nhận có quyền dùng tài liệu (bước Nghe thử).
 var ErrRightsNotConfirmed = errors.New("hãy xác nhận bạn có quyền dùng tài liệu này trước khi render")
@@ -153,8 +152,8 @@ func (a *App) ChooseDocx() (*DocxFile, error) {
 		return nil, errors.New("ứng dụng chưa khởi động xong")
 	}
 	path, err := wruntime.OpenFileDialog(a.ctx, wruntime.OpenDialogOptions{
-		Title:   "Chọn file Word hoặc văn bản",
-		Filters: []wruntime.FileFilter{{DisplayName: "File Word, văn bản (*.docx, *.txt)", Pattern: "*.docx;*.txt"}},
+		Title:   "Chọn file Word, PDF hoặc văn bản",
+		Filters: []wruntime.FileFilter{{DisplayName: "Word, PDF, văn bản (*.docx, *.pdf, *.txt)", Pattern: "*.docx;*.pdf;*.txt"}},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("mở hộp chọn file: %w", err)
@@ -171,7 +170,7 @@ func (a *App) DescribeDocx(path string) (*DocxFile, error) {
 }
 
 func describeDocx(path string) (*DocxFile, error) {
-	if ext := filepath.Ext(path); !strings.EqualFold(ext, ".docx") && !strings.EqualFold(ext, ".txt") {
+	if !bookmaker.IsSupportedInput(path) {
 		return nil, ErrNotDocx
 	}
 	info, err := os.Stat(path)

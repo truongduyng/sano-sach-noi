@@ -9,7 +9,7 @@ Gói zip dùng để **sao lưu hoặc chuyển sách sang máy khác**: một f
 
 Định dạng này **giữ ổn định** để máy chủ nghe sách ở giai đoạn sau nhận thẳng gói zip. Đổi spec = tăng `version` và giữ đọc được bản cũ.
 
-**Input format:** `cmd/sano-docx2tts` chỉ nhận `.docx`. File `.pdf`: chạy `scripts/pdf_to_docx.py` trước (trích outline/bookmark PDF → `.docx` tạm có Heading 1/2 chuẩn) rồi tạo sách như thường.
+**Input format:** `cmd/sano-docx2tts` và app nhận `.docx`, `.txt` (một đoạn văn liền mạch) và `.pdf` có lớp chữ (chương theo dòng "Chương N" / "Chapter N"; bản quét ảnh chưa đọc được). Cần tách chương theo outline/bookmark PDF thì chạy `scripts/pdf_to_docx.py` trước rồi nạp `.docx`.
 
 ## 1. Cấu trúc thư mục
 

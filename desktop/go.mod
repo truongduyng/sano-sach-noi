@@ -12,7 +12,10 @@ require (
 	golang.org/x/image v0.46.0
 )
 
-require github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300 // indirect
+require (
+	github.com/ledongthuc/pdf v0.0.0-20260907135840-6c8c28e0e8a0 // indirect
+	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300 // indirect
+)
 
 require (
 	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
